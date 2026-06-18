@@ -2,26 +2,105 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ----------------------------------------------------------------------------
+ * Role-aware tokens. Default = LIGHT (light-first; user switches to dark).
+ * `.dark` flips them. The brand accent is strictly monochrome:
+ *   light → black, dark → white. No hues in either theme.
+ * ------------------------------------------------------------------------- */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --surface: #f2efe6; /* bone */
+  --surface-soft: #e7e2d4; /* boneSoft */
+  --surface-muted: #e0dccc; /* boneMuted */
+  --surface-elevated: #ffffff; /* paper */
+  --text: #0a0a0a; /* ink */
+  --text-soft: #141414; /* inkSoft */
+  --text-muted: #6b6b6b; /* neutral grey */
+  --hairline: rgba(10, 10, 10, 0.12);
+  --hairline-strong: rgba(10, 10, 10, 0.2);
+  /* Brand accent: BLACK in light mode (black & white only). */
+  --brand-rgb: 10 10 10;
+  --brand-fg: #ffffff; /* text on a brand-filled surface */
+  color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.dark {
+  --surface: #0a0a0a; /* ink */
+  --surface-soft: #141414; /* inkSoft */
+  --surface-muted: #1e1e1e; /* inkMuted */
+  --surface-elevated: #141414;
+  --text: #f2efe6; /* bone */
+  --text-soft: #e7e2d4; /* boneSoft */
+  --text-muted: #9c988a; /* mute */
+  --hairline: rgba(242, 239, 230, 0.14);
+  --hairline-strong: rgba(242, 239, 230, 0.24);
+  /* Brand accent: WHITE in dark mode. */
+  --brand-rgb: 255 255 255;
+  --brand-fg: #0a0a0a;
+  color-scheme: dark;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  color: var(--text);
+  background: var(--surface);
+  font-family: var(--font-space), ui-sans-serif, system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer components {
+  /* The signature: uppercase wide-tracked labels (section labels, table heads, chips). */
+  .label {
+    font-family: var(--font-space), sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 600;
+    font-size: 11px;
+    line-height: 1.2;
+  }
+  /* Stacked brutalist display/hero/title type — Cabinet Grotesk Black,
+     matching the app (Anton is reserved for sparing condensed use). */
+  .hero {
+    font-family: var(--font-cabinet), var(--font-space), sans-serif;
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    line-height: 0.92;
+    text-transform: uppercase;
+  }
+  .heading {
+    font-family: var(--font-cabinet), var(--font-space), sans-serif;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+  }
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
   }
+  .hairline-b {
+    border-bottom: 1px solid var(--hairline);
+  }
+  .hairline-t {
+    border-top: 1px solid var(--hairline);
+  }
+}
+
+/* Seamless marquee loop (children are duplicated, so -50% = one full set). */
+@keyframes ud-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+/* Thin, on-brand scrollbars */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--hairline-strong);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
 }
