@@ -31,7 +31,7 @@ export default function LoginPage() {
     e?.preventDefault();
     // Demo auth — no backend. Enter the chosen workspace so brand vs agency differs.
     setWorkspace(accountType, accountType === "agency" ? agencyMode : undefined);
-    router.push("/dashboard");
+    router.push("/home");
   };
 
   return (

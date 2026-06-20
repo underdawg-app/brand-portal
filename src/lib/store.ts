@@ -43,7 +43,12 @@ import type {
   Representation,
   Client,
   TalentPool,
+  PlanCard,
+  PlanColumn,
+  DraftingGig,
 } from "@/lib/types";
+import { draftJobFromPrompt } from "@/lib/draftJob";
+import { generatePlanCards } from "@/lib/draftPlan";
 import { dealMath } from "@/lib/format";
 import { nextDealStatus } from "@/lib/status";
 
@@ -61,10 +66,17 @@ interface PortalState {
   setCurrentMember: (id: string) => void;
   currentMember: () => OrgMember | undefined;
 
+  // shell
+  sidebarOpen: boolean;
+  toggleSidebar: () => void;
+  setSidebarOpen: (v: boolean) => void;
+
   // account type / workspace (Brand vs Agency·Management vs Agency·Marketing)
   accountType: "brand" | "agency";
   agencyMode: "MANAGEMENT" | "MARKETING";
   setWorkspace: (t: "brand" | "agency", mode?: "MANAGEMENT" | "MARKETING") => void;
+  profile: { firstName: string; companyName: string; email: string; website: string; teamSize: string; contactPhone: string; contactOptOut: boolean; phoneAsked: boolean };
+  setProfile: (p: Partial<{ firstName: string; companyName: string; email: string; website: string; teamSize: string; contactPhone: string; contactOptOut: boolean; phoneAsked: boolean }>) => void;
   agency: Agency;
   representations: Representation[];
   sendRepRequest: (creatorId: string) => void;
@@ -155,6 +167,20 @@ interface PortalState {
   setCampaignStatus: (id: string, status: CampaignStatus) => void;
   toggleCampaignSlot: (campaignId: string, creatorId: string, payout: number) => void;
   setSlotStatus: (campaignId: string, creatorId: string, status: string) => void;
+
+  // plans / kanban (drag-and-drop board)
+  planCards: PlanCard[];
+  addPlanCard: (column: PlanColumn, title: string, body?: string, tag?: string, ai?: boolean) => string;
+  updatePlanCard: (id: string, patch: Partial<Pick<PlanCard, "title" | "body" | "tag">>) => void;
+  movePlanCard: (id: string, column: PlanColumn) => void;
+  deletePlanCard: (id: string) => void;
+  generatePlan: (brief: string) => void;
+
+  // drafting gigs (AI job posting — concurrent, splash while drafting)
+  draftingGigs: DraftingGig[];
+  startDraftingGig: (brief: string) => string;
+  completeDraftingGig: (gigId: string) => void;
+  dismissDraftingGig: (gigId: string) => void;
 }
 
 export const useStore = create<PortalState>((set, get) => ({
@@ -165,9 +191,15 @@ export const useStore = create<PortalState>((set, get) => ({
   setCurrentMember: (id) => set({ currentMemberId: id }),
   currentMember: () => get().members.find((m) => m.member_id === get().currentMemberId),
 
+  sidebarOpen: true,
+  toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
+  setSidebarOpen: (v) => set({ sidebarOpen: v }),
+
   accountType: "brand",
   agencyMode: "MANAGEMENT",
   setWorkspace: (t, mode) => set({ accountType: t, ...(mode ? { agencyMode: mode } : {}) }),
+  profile: { firstName: "", companyName: "", email: "", website: "", teamSize: "", contactPhone: "", contactOptOut: false, phoneAsked: false },
+  setProfile: (p) => set((s) => ({ profile: { ...s.profile, ...p } })),
   agency: seedAgency,
   representations: seedReps,
 
@@ -551,4 +583,59 @@ export const useStore = create<PortalState>((set, get) => ({
           : c,
       ),
     })),
+
+  // ---- plans / kanban ----------------------------------------------------
+  planCards: [
+    { card_id: "pc_1", column: "backlog", title: "Summer serum launch push", body: "5 skincare creators, honest UGC + 1 reel each.", tag: "Skincare" },
+    { card_id: "pc_2", column: "backlog", title: "Festive box illustration", body: "Commission a Madhubani artist for packaging.", tag: "Design" },
+    { card_id: "pc_3", column: "progress", title: "Ambassador shortlist", body: "Lock 3 candidates for the 3-month retainer.", tag: "Beauty" },
+    { card_id: "pc_4", column: "review", title: "Brand film — hero edit", body: "Review Maya's v1 cut, send audio notes.", tag: "Film" },
+    { card_id: "pc_5", column: "done", title: "Barrier cream review", body: "Devika's review went live — rated 5★.", tag: "Skincare" },
+  ],
+  addPlanCard: (column, title, body, tag, ai) => {
+    const id = uid("pc");
+    set((s) => ({ planCards: [{ card_id: id, column, title, body, tag, ai }, ...s.planCards] }));
+    return id;
+  },
+  updatePlanCard: (id, patch) =>
+    set((s) => ({ planCards: s.planCards.map((c) => (c.card_id === id ? { ...c, ...patch } : c)) })),
+  movePlanCard: (id, column) =>
+    set((s) => ({ planCards: s.planCards.map((c) => (c.card_id === id ? { ...c, column } : c)) })),
+  deletePlanCard: (id) => set((s) => ({ planCards: s.planCards.filter((c) => c.card_id !== id) })),
+  generatePlan: (brief) => {
+    const cards = generatePlanCards(brief).map((c) => ({ ...c, card_id: uid("pc"), ai: true }));
+    set((s) => ({ planCards: [...cards, ...s.planCards] }));
+  },
+
+  // ---- drafting gigs -----------------------------------------------------
+  draftingGigs: [],
+  startDraftingGig: (brief) => {
+    const id = uid("gig");
+    set((s) => ({ draftingGigs: [{ gig_id: id, brief, status: "drafting" }, ...s.draftingGigs] }));
+    return id;
+  },
+  completeDraftingGig: (gigId) => {
+    const g = get().draftingGigs.find((x) => x.gig_id === gigId);
+    if (!g) return;
+    const d = draftJobFromPrompt(g.brief);
+    const jobId = get().addJob({
+      title: d.title, type: d.type, niche: d.niche, description: d.description,
+      budgetMin: d.budgetMin, budgetMax: d.budgetMax, currency: "INR",
+      paymentStructure: "FLAT", requirements: { minFollowers: 10000, niche: d.niche, location: "India" },
+      deliverables: d.deliverables, timeline: d.timeline, usageRights: "Organic, 90 days",
+      exclusivity: "No competing brand, 30 days", applicationDeadline: "2026-07-31",
+      verified: true, status: "DRAFT", postedBy: "m_owner",
+      brandDisplay: get().profile.companyName || "Your brand",
+    });
+    get().publishJob(jobId);
+    set((s) => ({
+      draftingGigs: s.draftingGigs.map((x) =>
+        x.gig_id === gigId
+          ? { ...x, status: "ready", jobId, title: d.title, niche: d.niche, budgetMin: d.budgetMin, budgetMax: d.budgetMax }
+          : x,
+      ),
+    }));
+  },
+  dismissDraftingGig: (gigId) =>
+    set((s) => ({ draftingGigs: s.draftingGigs.filter((x) => x.gig_id !== gigId) })),
 }));

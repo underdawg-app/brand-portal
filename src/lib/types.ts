@@ -543,3 +543,33 @@ export interface Transaction {
   escrowId?: string;
   invoiceId?: string;
 }
+
+// ---------------------------------------------------------------------------
+// Plans (kanban board) — brand/agency campaign planning
+// ---------------------------------------------------------------------------
+
+export type PlanColumn = "backlog" | "progress" | "review" | "done";
+
+export interface PlanCard {
+  card_id: string;
+  column: PlanColumn;
+  title: string;
+  body?: string;
+  tag?: string;
+  ai?: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Drafting gigs — in-progress AI job posts (show splash until ready)
+// ---------------------------------------------------------------------------
+
+export interface DraftingGig {
+  gig_id: string;
+  brief: string;
+  status: "drafting" | "ready";
+  jobId?: string;
+  title?: string;
+  niche?: string;
+  budgetMin?: number;
+  budgetMax?: number;
+}

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { PageHeader, Chip, inputClass } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/Button";
-import { CreatorCard } from "@/components/CreatorCard";
+import { CreatorRow } from "@/components/CreatorRow";
 import { fitScore } from "@/lib/fit";
 
 const NICHES = ["Skincare", "Beauty", "Film", "Illustration", "Fashion", "Food", "Music", "Photo"];
@@ -76,14 +76,15 @@ export default function DiscoverPage() {
         <div className="text-xs text-textMuted">{results.length} creators · sorted by fit</div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="space-y-4">
         {results.map(({ c, fit }) => (
-          <CreatorCard
+          <CreatorRow
             key={c.cr_id}
             creator={c}
             fit={fit}
             saved={savedIds.has(c.cr_id)}
             onToggleSave={() => quickSave(c.cr_id)}
+            onMessage={() => router.push("/messages")}
             onClick={() => router.push(`/creators/${c.cr_id}`)}
           />
         ))}

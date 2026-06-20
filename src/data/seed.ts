@@ -99,10 +99,17 @@ export const brand: Brand = {
 
 type Seed = Partial<Creator> & Pick<Creator, "cr_id" | "handle" | "name" | "type" | "location" | "accent">;
 
+// Deterministic real-photo avatar per creator (pravatar has imgs 1–70).
+function avatarFor(id: string): string {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return `https://i.pravatar.cc/240?img=${(h % 70) + 1}`;
+}
+
 function creator(s: Seed): Creator {
   const followers = s.stats?.followers ?? 12000;
   return {
-    avatarUrl: "",
+    avatarUrl: avatarFor(s.cr_id),
     bio: "",
     stats: { followers, following: 320, reputation: 80, earned: 0 },
     tier: "EMERGING",
@@ -137,8 +144,14 @@ const plats = (ig: number, yt = 0, tt = 0) => [
   ...(tt ? [{ key: "tt", name: "TikTok", handle: "tt", followers: tt, verified: false }] : []),
 ];
 
+// Real portfolio thumbnails — stable per (accent+title) via picsum seed.
 const port = (accent: string, titles: string[]) =>
-  titles.map((t, i) => ({ id: `${t}-${i}`, title: t, cover: accent, kind: "IMAGE" }));
+  titles.map((t, i) => ({
+    id: `${t}-${i}`,
+    title: t,
+    cover: `https://picsum.photos/seed/${(accent + t + i).replace(/[^a-zA-Z0-9]/g, "")}/600/450`,
+    kind: "IMAGE",
+  }));
 
 export const creators: Creator[] = [
   creator({
@@ -568,4 +581,62 @@ export const invoices: Invoice[] = [
     subtotal: 32000, gstPct: 18, gstAmount: 5760, total: 37760, currency: "INR",
     gstin: "29ABCDE1234F1Z5", pan: "ABCDE1234F", status: "PAID", issuedAt: "2026-06-16", pdfUrl: "#",
   },
+];
+
+// ---------------------------------------------------------------------------
+// Home feed — trending, niches, challenges (engaging, not a boring portal)
+// ---------------------------------------------------------------------------
+
+const pic = (seed: string, w = 600, h = 400) =>
+  `https://picsum.photos/seed/${seed.replace(/[^a-zA-Z0-9]/g, "")}/${w}/${h}`;
+
+export interface NicheTile {
+  key: string;
+  name: string;
+  blurb: string;
+  cover: string;
+  creators: number;
+  trend: string; // e.g. "+18%"
+}
+
+export const nicheTiles: NicheTile[] = [
+  { key: "skincare", name: "Skincare & Beauty", blurb: "Honest routines + ingredient deep-dives are spiking.", cover: pic("nicheSkincare"), creators: 1240, trend: "+18%" },
+  { key: "fashion", name: "Fashion", blurb: "Thrift edits and slow-wardrobe styling lead this week.", cover: pic("nicheFashion"), creators: 980, trend: "+12%" },
+  { key: "food", name: "Food & Beverage", blurb: "Regional food creators driving the highest save rates.", cover: pic("nicheFood"), creators: 760, trend: "+9%" },
+  { key: "tech", name: "Tech & Gaming", blurb: "Long-form teardowns + clutch clips converting well.", cover: pic("nicheTech"), creators: 540, trend: "+22%" },
+  { key: "film", name: "Film & Photo", blurb: "Editorial, natural-light brand films in demand.", cover: pic("nicheFilm"), creators: 430, trend: "+7%" },
+  { key: "fitness", name: "Fitness & Wellness", blurb: "Morning-routine and recovery content trending up.", cover: pic("nicheFitness"), creators: 610, trend: "+15%" },
+];
+
+export interface TrendingPost {
+  id: string;
+  author: string;
+  avatar: string;
+  niche: string;
+  caption: string;
+  cover: string;
+  likes: number;
+  comments: number;
+  ago: string;
+}
+
+export const trendingPosts: TrendingPost[] = [
+  { id: "tp1", author: "Nia Raval", avatar: "https://i.pravatar.cc/120?img=45", niche: "Skincare", caption: "Cloud is a community-led skincare drop built around honest reviews and education.", cover: pic("postCloud", 900, 600), likes: 2280, comments: 660, ago: "2d" },
+  { id: "tp2", author: "Zoya Khan", avatar: "https://i.pravatar.cc/120?img=32", niche: "Fashion", caption: "The slow-wardrobe edit — 6 pieces, 20 looks. Here's how brands can plug in.", cover: pic("postWardrobe", 900, 600), likes: 1740, comments: 410, ago: "3d" },
+  { id: "tp3", author: "Arjun Nair", avatar: "https://i.pravatar.cc/120?img=12", niche: "Tech", caption: "Teardown season: what actually makes a sponsored integration land in gaming.", cover: pic("postTeardown", 900, 600), likes: 3120, comments: 890, ago: "5d" },
+];
+
+export interface Challenge {
+  id: string;
+  tag: string;
+  title: string;
+  prize: string;
+  daysLeft: number;
+  cover: string;
+}
+
+export const challenges: Challenge[] = [
+  { id: "ch1", tag: "summerdrop", title: "Summer Drop Challenge", prize: "₹5L", daysLeft: 6, cover: pic("chSummer") },
+  { id: "ch2", tag: "honestreview", title: "Honest Review Sprint", prize: "₹2L", daysLeft: 12, cover: pic("chReview") },
+  { id: "ch3", tag: "brandfilm", title: "60s Brand Film Challenge", prize: "₹3L", daysLeft: 9, cover: pic("chFilm") },
 ];

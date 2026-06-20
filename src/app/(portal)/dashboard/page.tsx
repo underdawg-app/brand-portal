@@ -1,116 +1,122 @@
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, FileSignature, Eye, Wallet, Star, Plus, Search } from "lucide-react";
+import { ArrowRight, FileSignature, Eye, Wallet, Star, Search } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { PageHeader, Card, Stat, Label, Money, ProgressBar, StatusBadge, Avatar } from "@/components/ui/primitives";
+import { PageHeader, Card, Stat, Label, Money, StatusBadge, Avatar } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/Button";
-import { KanbanBoard, KanbanColumn } from "@/components/ui/Kanban";
-import { bucketOf, dealTone } from "@/lib/status";
+import { CreatorCard } from "@/components/CreatorCard";
+import { bucketOf } from "@/lib/status";
 import { compact } from "@/lib/format";
 import type { Deal } from "@/lib/types";
 
 export default function DashboardPage() {
-  const router = useRouter();
   const accountType = useStore((s) => s.accountType);
-  const deals = useStore((s) => s.deals);
-  const escrows = useStore((s) => s.escrows);
-  const creatorById = (id: string) => useStore.getState().creators.find((c) => c.cr_id === id);
-
   if (accountType === "agency") return <AgencyDashboard />;
+  return <BrandHome />;
+}
 
-  const buckets = {
-    PROPOSED: deals.filter((d) => bucketOf(d.status) === "PROPOSED"),
-    ACTIVE: deals.filter((d) => bucketOf(d.status) === "ACTIVE"),
-    CLOSED: deals.filter((d) => bucketOf(d.status) === "CLOSED"),
-  };
+// --------------------------------------------------------------- Brand home (workspace)
+function BrandHome() {
+  const router = useRouter();
+  const deals = useStore((s) => s.deals);
+  const creators = useStore((s) => s.creators);
+  const brand = useStore((s) => s.brand);
+  const profile = useStore((s) => s.profile);
+  const jobs = useStore((s) => s.jobs);
+  const campaigns = useStore((s) => s.campaigns);
 
-  const escrowHeld = escrows
-    .filter((e) => e.status !== "PAID")
-    .reduce((sum, e) => sum + e.grossAmount, 0);
-  const totalCommitted = deals
-    .filter((d) => d.status !== "COMPLETED" && d.status !== "CANCELLED")
-    .reduce((s, d) => s + d.amount, 0);
+  const wsName = profile.companyName || brand.name;
 
+  const featured = useMemo(
+    () => [...creators].sort((a, b) => b.stats.reputation - a.stats.reputation).slice(0, 6),
+    [creators],
+  );
+
+  // Working set — deals that aren't closed/cancelled — and the distinct creators on them.
+  const working = deals.filter((d) => bucketOf(d.status) !== "CLOSED" && d.status !== "CANCELLED");
+  const creatorsWorking = new Set(working.map((d) => d.creatorId)).size;
+  const liveGigs = jobs.filter((j) => j.status === "LIVE");
+  const activeCampaigns = campaigns.filter((c) => c.status !== "COMPLETED" && c.status !== "DRAFT").length;
   const actionItems = buildActions(deals);
+
+  const metrics = [
+    { label: "Gigs live", value: liveGigs.length, sub: "your posted jobs", href: "/jobs" },
+    { label: "Creators working", value: creatorsWorking, sub: "across active deals", href: "/deals" },
+    { label: "Active campaigns", value: activeCampaigns, sub: "in flight", href: "/campaigns" },
+    { label: "In conversation", value: working.length, sub: "open deals", href: "/deals" },
+  ];
 
   return (
     <>
-      <PageHeader
-        eyebrow="Copperleaf · Verified Brand"
-        title="Command Centre"
-        sub="Every deal, dollar and decision in one place. Prove one loop, then scale."
-        action={
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => router.push("/discover")}><Search size={16} /> Discover creators</Button>
-            <Button onClick={() => router.push("/jobs/new")}><Plus size={16} /> Post a job</Button>
-          </div>
-        }
-      />
+      {/* workspace header */}
+      <section className="flex flex-wrap items-end justify-between gap-4 border-b border-hairline pb-6">
+        <div>
+          <span className="label text-brand">Your workspace</span>
+          <h1 className="hero mt-1 text-4xl text-text md:text-5xl">Welcome, {wsName}</h1>
+          <p className="mt-2 text-sm text-textMuted">Here&apos;s what&apos;s in motion — no numbers to stress over, just what needs you.</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => router.push("/discover")}><Search size={16} /> Find a creator</Button>
+          <Button onClick={() => router.push("/jobs/post")}>Post a job</Button>
+        </div>
+      </section>
 
+      {/* workspace metrics (no spend) */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Active deals" value={buckets.ACTIVE.length + buckets.PROPOSED.length} sub="in pipeline" />
-        <Stat label="Committed spend" value={<Money amount={totalCommitted} />} sub="across open deals" />
-        <Stat label="Held in escrow" value={<Money amount={escrowHeld} />} sub="awaiting approval" />
-        <Stat label="Completed" value={buckets.CLOSED.length} sub="all-time" />
+        {metrics.map((m) => (
+          <Link key={m.label} href={m.href}>
+            <Card className="p-4 transition-colors hover:border-hairlineStrong">
+              <Label>{m.label}</Label>
+              <div className="mt-2 font-heavy text-3xl text-text">{m.value}</div>
+              <div className="mt-1 text-xs text-textMuted">{m.sub}</div>
+            </Card>
+          </Link>
+        ))}
       </div>
 
-      {/* Action items */}
-      <Card className="p-5">
-        <Label>Needs you</Label>
-        <div className="mt-3 divide-y divide-hairline">
-          {actionItems.length === 0 && <p className="py-4 text-sm text-textMuted">All caught up. Nice.</p>}
-          {actionItems.map((a) => (
-            <Link
-              key={a.dealId}
-              href={`/deals/${a.dealId}`}
-              className="flex items-center gap-3 py-3 text-sm hover:opacity-80"
-            >
-              <a.icon size={16} className="text-brand" />
-              <span className="flex-1 text-text">{a.label}</span>
-              <span className="text-textMuted">{a.title}</span>
-              <ArrowRight size={14} className="text-textMuted" />
-            </Link>
-          ))}
-        </div>
-      </Card>
-
-      {/* Pipeline kanban */}
-      <div>
-        <Label>Pipeline</Label>
-        <div className="mt-3">
-          <KanbanBoard>
-            {(["PROPOSED", "ACTIVE", "CLOSED"] as const).map((b) => (
-              <KanbanColumn key={b} title={b} count={buckets[b].length}>
-                {buckets[b].map((d) => {
-                  const c = creatorById(d.creatorId);
-                  return (
-                    <Link key={d.deal_id} href={`/deals/${d.deal_id}`}>
-                      <Card className="p-3 transition-colors hover:border-hairlineStrong">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <Avatar name={c?.name ?? "?"} accent={c?.accent} size={26} />
-                            <span className="truncate text-sm font-medium text-text">{c?.name}</span>
-                          </div>
-                          <StatusBadge tone={dealTone[d.status]}>{d.status}</StatusBadge>
-                        </div>
-                        <div className="mt-2 text-xs text-textMuted">{d.nextAction}</div>
-                        <div className="mt-3 flex items-center justify-between">
-                          <Money amount={d.amount} currency={d.currency} className="text-sm text-text" />
-                          <span className="text-xs text-textMuted">{Math.round(d.progress * 100)}%</span>
-                        </div>
-                        <ProgressBar value={d.progress} className="mt-1.5" />
-                      </Card>
-                    </Link>
-                  );
-                })}
-                {buckets[b].length === 0 && (
-                  <p className="px-1 py-6 text-center text-xs text-textMuted">Empty</p>
-                )}
-              </KanbanColumn>
+      {/* what's running + needs you */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card className="p-5">
+          <div className="flex items-center justify-between">
+            <Label>What&apos;s running</Label>
+            <Link href="/deals" className="label text-brand hover:underline">All deals →</Link>
+          </div>
+          <div className="mt-3 space-y-2">
+            {working.length === 0 && <p className="py-3 text-sm text-textMuted">Nothing active yet. Post a gig to get going.</p>}
+            {working.slice(0, 5).map((d) => (
+              <Link key={d.deal_id} href={`/deals/${d.deal_id}`} className="flex items-center justify-between gap-3 rounded-lg border border-hairline px-3 py-2 text-sm hover:border-hairlineStrong">
+                <span className="min-w-0 flex-1 truncate text-text">{d.title}</span>
+                <StatusBadge tone="info">{d.status}</StatusBadge>
+              </Link>
             ))}
-          </KanbanBoard>
+          </div>
+        </Card>
+        <Card className="p-5 lg:col-span-2">
+          <Label>Needs you</Label>
+          <div className="mt-3 divide-y divide-hairline">
+            {actionItems.length === 0 && <p className="py-4 text-sm text-textMuted">All caught up. Post a job to get applicants.</p>}
+            {actionItems.map((a) => (
+              <Link key={a.dealId} href={`/deals/${a.dealId}`} className="flex items-center gap-3 py-3 text-sm hover:opacity-80">
+                <a.icon size={16} className="text-brand" /><span className="flex-1 text-text">{a.label}</span><span className="text-textMuted">{a.title}</span><ArrowRight size={14} className="text-textMuted" />
+              </Link>
+            ))}
+          </div>
+        </Card>
+      </div>
+
+      {/* Rising creators feed */}
+      <div>
+        <div className="flex items-center justify-between">
+          <Label>Rising creators for you</Label>
+          <Link href="/discover" className="label text-brand hover:underline">Browse all →</Link>
+        </div>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {featured.map((c) => (
+            <CreatorCard key={c.cr_id} creator={c} onClick={() => router.push(`/creators/${c.cr_id}`)} />
+          ))}
         </div>
       </div>
     </>

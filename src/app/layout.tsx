@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
+
+// Inter — used for the splash phrase frames.
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 
 // Exact font files bundled from the creator app (assets/fonts) so the portal
 // pixel-matches the app — no Google/Fontshare dependency.
@@ -41,7 +45,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${anton.variable} ${spaceGrotesk.variable} ${cabinet.variable} font-body`}>
+      <body className={`${anton.variable} ${spaceGrotesk.variable} ${cabinet.variable} ${inter.variable} font-body`}>
         <Providers>{children}</Providers>
       </body>
     </html>

@@ -7,7 +7,8 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { useStore } from "@/lib/store";
 import { useBrandColor } from "@/lib/useBrandColor";
 import { creatorAnalytics } from "@/lib/analytics";
-import { PageHeader, Card, Label, Money, StatusBadge, Avatar, Stat } from "@/components/ui/primitives";
+import { PageHeader, Card, Label, Money, StatusBadge, Avatar } from "@/components/ui/primitives";
+import type { EngagementTone } from "@/lib/analytics";
 import { LineArea } from "@/components/ui/Charts";
 import { Button } from "@/components/ui/Button";
 import { compact } from "@/lib/format";
@@ -54,7 +55,7 @@ export default function CreatorProfilePage() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-hairline pb-6">
         <div className="flex items-center gap-4">
-          <Avatar name={c.name} accent={c.accent} size={72} />
+          <Avatar name={c.name} src={c.avatarUrl} accent={c.accent} size={72} />
           <div>
             <div className="flex items-center gap-2">
               <h1 className="hero text-4xl text-text">{c.name}</h1>
@@ -133,14 +134,44 @@ export default function CreatorProfilePage() {
 
       <p className="text-sm text-textSoft">{c.bio}</p>
 
-      {/* Key stats */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <Stat label="Followers" value={compact(c.stats.followers)} sub="across platforms" />
-        <Stat label="Engagement" value={`${a.engagementRate}%`} sub="avg rate" />
-        <Stat label="Reach (30d)" value={compact(a.reach30d)} sub={`+${a.growth30d}% growth`} />
-        <Stat label="Reputation" value={c.stats.reputation} sub={`${c.tier} tier`} />
-        <Stat label="Best time" value={a.bestPostTime} sub="to post" />
-      </div>
+      {/* Qoruz-style overview */}
+      <Card className="overflow-hidden">
+        <div className="flex items-center justify-between border-b border-hairline px-5 py-3">
+          <Label>Overview</Label>
+          <span className="label text-textMuted">verified analytics</span>
+        </div>
+        <div className="grid gap-px bg-hairline sm:grid-cols-2 lg:grid-cols-4">
+          <OverviewCell label="Followers" value={compact(c.stats.followers)} sub="across platforms" />
+          <OverviewCell
+            label="Engagement Rate"
+            value={`${a.engagementRate}%`}
+            chip={<ToneChip tone={a.engagementTone} />}
+          />
+          <OverviewCell label="Estimated Reach" value={compact(a.estimatedReach)} sub={`+${a.growth30d}% growth`} />
+          <OverviewCell
+            label="Underdawg Score"
+            value={
+              <span className="flex items-center gap-2">
+                <span className="grid h-8 w-8 place-items-center rounded-md bg-brand text-sm font-heavy text-brandFg">{a.score.toFixed(1)}</span>
+              </span>
+            }
+            chip={<span className="label rounded-md border border-hairlineStrong px-2 py-0.5 text-text">{a.percentile}</span>}
+          />
+        </div>
+        <div className="border-t border-hairline px-5 py-4">
+          <Label>Insights</Label>
+          <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
+            {a.insights.map((ins) => (
+              <div key={ins.label} className="flex items-center gap-2 text-sm text-text">
+                <span className={`grid h-5 w-5 place-items-center rounded-full text-[11px] ${ins.good ? "bg-brand/10 text-brand" : "bg-surfaceMuted text-textMuted"}`}>
+                  {ins.good ? "+" : "−"}
+                </span>
+                {ins.label}
+              </div>
+            ))}
+          </div>
+        </div>
+      </Card>
 
       {/* Reach + engagement trend */}
       <Card className="p-5">
@@ -239,8 +270,14 @@ export default function CreatorProfilePage() {
         <Label>Portfolio</Label>
         <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {c.portfolio.map((p) => (
-            <div key={p.id} className="aspect-square rounded-xl border border-hairline" style={{ background: `${p.cover}22` }}>
-              <div className="flex h-full items-end p-3"><span className="label text-text">{p.title}</span></div>
+            <div key={p.id} className="relative aspect-square overflow-hidden rounded-xl border border-hairline bg-surfaceMuted">
+              {p.cover.startsWith("http") && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={p.cover} alt={p.title} className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
+              )}
+              <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/60 to-transparent p-3">
+                <span className="label text-white">{p.title}</span>
+              </div>
             </div>
           ))}
         </div>
@@ -288,6 +325,20 @@ function PickerDialog({
       </Dialog.Portal>
     </Dialog.Root>
   );
+}
+
+function OverviewCell({ label, value, sub, chip }: { label: string; value: React.ReactNode; sub?: string; chip?: React.ReactNode }) {
+  return (
+    <div className="bg-surfaceElevated p-5">
+      <Label>{label}</Label>
+      <div className="mt-2 flex items-center gap-2 font-heavy text-2xl text-text">{value}{chip}</div>
+      {sub && <div className="mt-1 text-xs text-textMuted">{sub}</div>}
+    </div>
+  );
+}
+
+function ToneChip({ tone }: { tone: EngagementTone }) {
+  return <span className="label rounded-md bg-brand px-2 py-0.5 text-brandFg">{tone}</span>;
 }
 
 function BarCard({ title, data, color }: { title: string; data: { label: string; value: number }[]; color: string }) {

@@ -48,7 +48,7 @@ export default function JobsPage() {
         title="Jobs & Briefs"
         sub="Post a brief, then triage applicants in the ATS."
         action={
-          <Button onClick={() => router.push("/jobs/new")}>
+          <Button onClick={() => router.push("/jobs/post")}>
             <Plus size={16} /> New job
           </Button>
         }
@@ -61,7 +61,7 @@ export default function JobsPage() {
         empty={
           <div className="space-y-3">
             <p>No jobs yet.</p>
-            <Link href="/jobs/new" className="text-brand underline">Post your first brief</Link>
+            <Link href="/jobs/post" className="text-brand underline">Post your first brief</Link>
           </div>
         }
       />

@@ -29,12 +29,25 @@ function split(parts: number[]): number[] {
   return pct;
 }
 
+export type EngagementTone = "Excellent" | "Good" | "Average";
+export type Percentile = "Top 1%" | "Top 5%" | "Top 25%" | "Top 50%";
+
+export interface CreatorInsight {
+  label: string;
+  good: boolean; // green (+) vs red (−)
+}
+
 export interface CreatorAnalytics {
   reachTrend: { w: string; reach: number; eng: number }[];
   engagementRate: number;
+  engagementTone: EngagementTone;
   reach30d: number;
+  estimatedReach: number;
   profileViews: number;
   growth30d: number;
+  score: number; // 0–10 (Qoruz-style)
+  percentile: Percentile;
+  insights: CreatorInsight[];
   ages: { label: string; value: number }[];
   gender: { label: string; value: number }[];
   locations: { label: string; value: number }[];
@@ -42,6 +55,19 @@ export interface CreatorAnalytics {
   topContent: { id: string; title: string; views: number; likes: number; rate: number }[];
   reputation: { key: string; label: string; weight: number; score: number }[];
   bestPostTime: string;
+}
+
+function engagementTone(rate: number): EngagementTone {
+  if (rate >= 4) return "Excellent";
+  if (rate >= 2.5) return "Good";
+  return "Average";
+}
+
+function percentileFor(score: number): Percentile {
+  if (score >= 8.5) return "Top 1%";
+  if (score >= 7.5) return "Top 5%";
+  if (score >= 6) return "Top 25%";
+  return "Top 50%";
 }
 
 const REP_FACTORS: { key: string; label: string; weight: number }[] = [
@@ -120,8 +146,27 @@ export function creatorAnalytics(c: Creator): CreatorAnalytics {
   const hours = ["7–9 PM", "8–10 PM", "12–2 PM", "9–11 AM"];
   const bestPostTime = hours[Math.floor(rng(id, "bt") * hours.length)];
 
+  // Qoruz-style composite score (0–10): reputation + engagement + reach weight.
+  const score = Number(
+    Math.min(9.8, 4.5 + (rep / 100) * 3.2 + (engagementRate / 10) * 1.8 + Math.min(1, base / 250000) * 1.3).toFixed(2),
+  );
+  const percentile = percentileFor(score);
+  const tone = engagementTone(engagementRate);
+  const reelHeavy = rng(id, "reel") > 0.25;
+  const drivesComments = engagementRate > 4;
+  const positiveGrowth = growth30d >= 4;
+  const insights: CreatorInsight[] = [
+    { label: "Highly engaging audience", good: engagementRate >= 3 },
+    { label: reelHeavy ? "High reel viewership" : "Moderate reel viewership", good: reelHeavy },
+    { label: drivesComments ? "High ability to drive comments" : "Moderate ability to drive comments", good: drivesComments },
+    { label: positiveGrowth ? "Positive follower growth" : "Negative follower growth", good: positiveGrowth },
+  ];
+
+  const estimatedReach = Math.round(base * (0.32 + rng(id, "esr") * 0.5));
+
   return {
-    reachTrend, engagementRate, reach30d, profileViews, growth30d,
+    reachTrend, engagementRate, engagementTone: tone, reach30d, estimatedReach,
+    profileViews, growth30d, score, percentile, insights,
     ages, gender, locations, devices, topContent, reputation, bestPostTime,
   };
 }
