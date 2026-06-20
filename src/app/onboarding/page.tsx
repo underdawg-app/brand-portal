@@ -23,7 +23,6 @@ export default function Onboarding() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [website, setWebsite] = useState("");
-  const [showLogo, setShowLogo] = useState(false);
 
   const chooseRole = (t: "brand" | "agency") => {
     setAccount(t);
@@ -47,33 +46,21 @@ export default function Onboarding() {
     return () => clearTimeout(t);
   }, [phase, router]);
 
-  // Once the logo has revealed, hold a beat then enter.
-  useEffect(() => {
-    if (!showLogo) return;
-    const t = setTimeout(() => router.push("/home"), 1500);
-    return () => clearTimeout(t);
-  }, [showLogo, router]);
-
   if (phase === "welcome") {
     return (
       <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-surface px-6 text-center text-text">
         {/* soft radial glow behind the mark */}
         <div className="pointer-events-none absolute left-1/2 top-1/2 h-[36rem] w-[36rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand/[0.04] blur-3xl" />
 
-        {/* gooey morph through lowercase words, then reveal the real logo */}
-        <div className="relative flex h-[160px] w-full max-w-2xl items-center justify-center">
-          {showLogo ? (
-            <div className="ud-logo-in"><Logo height={56} /></div>
-          ) : (
-            <GooeyTextSequence
-              texts={["welcome", "discover", "get viral"]}
-              morphTime={0.9}
-              holdTime={0.25}
-              onComplete={() => setShowLogo(true)}
-              className="h-[160px] w-full"
-            />
-          )}
-        </div>
+        {/* gooey morph: lowercase words → the real logo, same effect throughout */}
+        <GooeyTextSequence
+          texts={["welcome", "discover", "get viral"]}
+          logo={<Logo height={56} />}
+          morphTime={0.9}
+          holdTime={1.2}
+          onComplete={() => router.push("/home")}
+          className="relative h-[160px] w-full max-w-2xl"
+        />
 
         <div className="relative mt-12 flex flex-col items-center gap-4">
           <div className="h-0.5 w-52 overflow-hidden rounded-full bg-surfaceMuted">

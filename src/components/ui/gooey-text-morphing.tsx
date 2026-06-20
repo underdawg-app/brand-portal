@@ -95,11 +95,13 @@ export function GooeyText({
 }
 
 /**
- * One-shot variant: morphs through `texts` in order, holds on the last one (use the
- * logo wordmark there), then calls `onComplete`. Same gooey blur+threshold technique.
+ * One-shot variant: morphs through `texts` in order, then (optionally) morphs the last
+ * word into the `logo` node using the SAME gooey blur+threshold effect, holds, and calls
+ * `onComplete`. The logo forms with the identical gooey transition as the words.
  */
 export function GooeyTextSequence({
   texts,
+  logo,
   morphTime = 0.9,
   holdTime = 1,
   font = "var(--font-anton), system-ui, sans-serif",
@@ -108,6 +110,7 @@ export function GooeyTextSequence({
   textClassName,
 }: {
   texts: string[];
+  logo?: React.ReactNode;
   morphTime?: number;
   holdTime?: number;
   font?: string;
@@ -117,11 +120,24 @@ export function GooeyTextSequence({
 }) {
   const aRef = React.useRef<HTMLSpanElement>(null);
   const bRef = React.useRef<HTMLSpanElement>(null);
+  const logoRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     let raf = 0;
     let start = 0;
     let done = false;
+    const hasLogo = !!logo;
+    // total morph segments: word→word for each gap, plus a final word→logo if logo set.
+    const totalSegs = hasLogo ? texts.length : texts.length - 1;
+    const lastText = texts.length - 1;
+
+    // blur+opacity for a layer; frac 1 = crisp/visible, 0 = dissolved/gone.
+    const setLayer = (el: HTMLElement | null, frac: number) => {
+      if (!el) return;
+      el.style.filter = `blur(${Math.min(8 / frac - 8, 100)}px)`;
+      el.style.opacity = `${Math.pow(frac, 0.4) * 100}%`;
+    };
+
     if (aRef.current) aRef.current.textContent = texts[0] ?? "";
     if (bRef.current) bRef.current.textContent = texts[1] ?? texts[0] ?? "";
 
@@ -130,39 +146,45 @@ export function GooeyTextSequence({
       const elapsed = (now - start) / 1000;
       const seg = Math.floor(elapsed / morphTime);
 
-      if (seg >= texts.length - 1) {
-        // hold crisp on the final frame (the logo wordmark)
-        if (aRef.current && bRef.current) {
-          bRef.current.textContent = texts[texts.length - 1];
-          bRef.current.style.filter = "";
-          bRef.current.style.opacity = "100%";
-          aRef.current.style.opacity = "0%";
+      if (seg >= totalSegs) {
+        // hold crisp on the final frame
+        if (hasLogo) {
+          if (logoRef.current) { logoRef.current.style.filter = ""; logoRef.current.style.opacity = "100%"; }
+          setLayer(aRef.current, 0); setLayer(bRef.current, 0);
+        } else if (bRef.current) {
+          bRef.current.textContent = texts[lastText];
+          bRef.current.style.filter = ""; bRef.current.style.opacity = "100%";
+          setLayer(aRef.current, 0);
         }
-        if (!done) {
-          done = true;
-          setTimeout(() => onComplete?.(), holdTime * 1000);
-        }
+        if (!done) { done = true; setTimeout(() => onComplete?.(), holdTime * 1000); }
         raf = requestAnimationFrame(frame);
         return;
       }
 
-      const f = (elapsed - seg * morphTime) / morphTime; // 0..1
-      const from = texts[seg];
-      const to = texts[seg + 1];
-      if (aRef.current && bRef.current) {
-        if (aRef.current.textContent !== from) aRef.current.textContent = from;
-        if (bRef.current.textContent !== to) bRef.current.textContent = to;
-        bRef.current.style.filter = `blur(${Math.min(8 / f - 8, 100)}px)`;
-        bRef.current.style.opacity = `${Math.pow(f, 0.4) * 100}%`;
-        const inv = 1 - f;
-        aRef.current.style.filter = `blur(${Math.min(8 / inv - 8, 100)}px)`;
-        aRef.current.style.opacity = `${Math.pow(inv, 0.4) * 100}%`;
+      const f = (elapsed - seg * morphTime) / morphTime; // 0..1 within this segment
+      const inv = 1 - f;
+
+      if (hasLogo && seg === lastText) {
+        // last word → logo (same gooey cross-blur)
+        if (aRef.current && aRef.current.textContent !== texts[lastText]) aRef.current.textContent = texts[lastText];
+        setLayer(aRef.current, inv);   // word dissolves out
+        setLayer(logoRef.current, f);  // logo forms in
+        setLayer(bRef.current, 0);
+      } else {
+        // word → word
+        const from = texts[seg];
+        const to = texts[seg + 1];
+        if (aRef.current && aRef.current.textContent !== from) aRef.current.textContent = from;
+        if (bRef.current && bRef.current.textContent !== to) bRef.current.textContent = to;
+        setLayer(bRef.current, f);
+        setLayer(aRef.current, inv);
+        if (logoRef.current) logoRef.current.style.opacity = "0%";
       }
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [texts, morphTime, holdTime, onComplete]);
+  }, [texts, logo, morphTime, holdTime, onComplete]);
 
   return (
     <div className={cn("relative flex items-center justify-center", className)}>
@@ -170,6 +192,7 @@ export function GooeyTextSequence({
       <div className="flex items-center justify-center" style={{ filter: "url(#threshold)" }}>
         <span ref={aRef} style={{ fontFamily: font }} className={cn("absolute inline-block select-none whitespace-nowrap text-center text-5xl text-text sm:text-6xl md:text-7xl", textClassName)} />
         <span ref={bRef} style={{ fontFamily: font }} className={cn("absolute inline-block select-none whitespace-nowrap text-center text-5xl text-text sm:text-6xl md:text-7xl", textClassName)} />
+        {logo && <div ref={logoRef} className="absolute inline-flex items-center justify-center" style={{ opacity: "0%" }}>{logo}</div>}
       </div>
     </div>
   );
